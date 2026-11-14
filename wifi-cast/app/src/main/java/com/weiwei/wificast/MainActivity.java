@@ -1,0 +1,13 @@
+package com.weiwei.wificast;
+
+import android.app.*;import android.content.*;import android.media.projection.MediaProjectionManager;import android.os.*;import android.view.*;import android.widget.*;import android.graphics.Color;import java.net.*;import java.util.*;
+
+public class MainActivity extends Activity {
+ TextView status; Handler h=new Handler(); Runnable refresh; static final int REQUEST=91;
+ String address(){try{Enumeration<NetworkInterface> ni=NetworkInterface.getNetworkInterfaces();while(ni.hasMoreElements()){NetworkInterface n=ni.nextElement(); if(!n.isUp()||n.isLoopback()||!n.getName().startsWith("wlan"))continue; Enumeration<InetAddress> aa=n.getInetAddresses();while(aa.hasMoreElements()){InetAddress a=aa.nextElement();if(a instanceof Inet4Address&&!a.isLoopbackAddress())return a.getHostAddress();}}}catch(Exception ignored){}return null;}
+ TextView text(String s,int size){TextView v=new TextView(this);v.setText(s);v.setTextColor(Color.rgb(22,30,49));v.setTextSize(size);return v;}
+ public void onCreate(Bundle b){super.onCreate(b);LinearLayout root=new LinearLayout(this);root.setPadding(50,80,50,40);root.setOrientation(1);root.setBackgroundColor(Color.rgb(247,249,253));TextView title=text("手机无线投屏",28);title.setTypeface(null,1);root.addView(title);TextView hint=text("安卓手机 → Windows 电脑\n\n1. 手机和电脑连接同一个 Wi-Fi\n2. 点击开始并允许屏幕录制\n3. 在电脑浏览器输入下方网址",17);hint.setPadding(0,35,0,35);root.addView(hint);status=text("尚未开始投屏",18);status.setTextIsSelectable(true);root.addView(status);Button start=new Button(this);start.setText("开始投屏");root.addView(start);Button stop=new Button(this);stop.setText("停止投屏");root.addView(stop);TextView note=text("提示：请勿将网址分享给他人。当前版本只传画面，不传声音。",14);note.setPadding(0,25,0,0);root.addView(note);setContentView(root);
+ start.setOnClickListener(v->{if(address()==null){status.setText("请先连接 Wi-Fi");return;} MediaProjectionManager m=(MediaProjectionManager)getSystemService(MEDIA_PROJECTION_SERVICE);startActivityForResult(m.createScreenCaptureIntent(),REQUEST);});stop.setOnClickListener(v->{stopService(new Intent(this,CastService.class));});refresh=()->{if(CastService.running){String ip=address();status.setText(ip==null?"请先连接 Wi-Fi":"电脑浏览器打开：\nhttp://"+ip+":"+CastService.PORT+"/"+CastService.token);}else status.setText("尚未开始投屏");h.postDelayed(refresh,1000);};h.post(refresh);}
+ protected void onActivityResult(int req,int result,Intent data){super.onActivityResult(req,result,data);if(req==REQUEST&&result==RESULT_OK&&data!=null){Intent i=new Intent(this,CastService.class);i.putExtra("result",result);i.putExtra("data",data);startForegroundService(i);}else if(req==REQUEST)Toast.makeText(this,"未获得屏幕录制授权",Toast.LENGTH_LONG).show();}
+ protected void onDestroy(){h.removeCallbacks(refresh);super.onDestroy();}
+}
